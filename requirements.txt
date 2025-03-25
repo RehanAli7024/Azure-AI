@@ -1,0 +1,10 @@
+azure-storage-blob==12.19.0
+azure-ai-formrecognizer==3.3.0
+azure-core==1.30.0
+python-dotenv==1.0.0
+azure-cosmos==4.5.1
+botbuilder-core==4.14.7
+botbuilder-schema==4.14.7
+botbuilder-dialogs==4.14.7
+azure-cognitiveservices-language-textanalytics==0.2.0
+azure-ai-translation-text==1.0.0
