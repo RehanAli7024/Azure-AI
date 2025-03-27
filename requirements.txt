@@ -1,0 +1,8 @@
+azure-storage-blob
+azure-search-documents
+azure-ai-formrecognizer
+flask
+python-dotenv
+requests
+werkzeug
+pytz

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Support Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Document Support Chatbot</h1>
+            <p>Upload support documents and get instant answers to your questions</p>
+        </header>
+        
+        <div class="upload-section">
+            <h2>Upload Document</h2>
+            <form id="upload-form" enctype="multipart/form-data">
+                <input type="file" id="document-upload" name="file" accept=".pdf,.docx,.txt" />
+                <button type="submit" id="upload-button">Upload</button>
+            </form>
+            <div id="upload-status"></div>
+        </div>
+        
+        <div class="chat-section">
+            <h2>Chat</h2>
+            <div id="chat-messages">
+                <div class="message bot">
+                    <div class="message-content">
+                        Welcome! Start by uploading a support document.
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="user-input" placeholder="Type your question..." disabled />
+                <button id="send-button" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
