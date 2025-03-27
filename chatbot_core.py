@@ -1,7 +1,7 @@
 import os
 import logging
 from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import SystemMessage, UserMessage
+from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
 from azure.core.credentials import AzureKeyCredential
 from document_processor import search_documents
 from dotenv import load_dotenv
@@ -23,7 +23,6 @@ MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL", "gpt-4")
 
 # Validate required environment variables
 if not OPENAI_ENDPOINT or not OPENAI_KEY:
-    # Fallback to hardcoded values if environment variables are not set
     logger.warning("Environment variables not found, using hardcoded values")
     OPENAI_ENDPOINT = "https://bb122-m8r64vdd-eastus2.cognitiveservices.azure.com/openai/deployments/gpt-4"
     OPENAI_KEY = "DDIhf3uFxLmFwtZwsDGOwDhq4HW6AcxoanaLkEFfqXeoZ59MA00RJQQJ99BCACHYHv6XJ3w3AAAAACOGS2dy"
@@ -37,9 +36,24 @@ client = ChatCompletionsClient(
     credential=AzureKeyCredential(OPENAI_KEY)
 )
 
+# Initialize conversation history
+conversation_history = [
+    SystemMessage(content="""
+You are a knowledgeable support assistant helping users with their questions.
+Your responses should be:
+1. Accurate and based only on the context provided.
+2. Concise but complete.
+3. Helpful and user-friendly.
+4. Well-structured with clear organization.
+
+If the context doesn't contain information relevant to the question, be honest about not having enough information.
+Do not make up facts or information not present in the context.
+    """)
+]
+
 def generate_rag_response(query, max_search_results=3):
     """
-    Generate a response using RAG with the Azure AI Inference SDK
+    Generate a response using RAG with the Azure AI Inference SDK while retaining conversation history.
     """
     sources = []
     try:
@@ -51,8 +65,11 @@ def generate_rag_response(query, max_search_results=3):
         
         if not search_results.get("success") or not search_results.get("results"):
             logger.warning("No relevant search results found")
+            response_message = AssistantMessage(content="I couldn't find any relevant information to answer your question.")
+            conversation_history.append(UserMessage(content=query))
+            conversation_history.append(response_message)
             return {
-                "answer": "I couldn't find any relevant information to answer your question.",
+                "answer": response_message.content,
                 "sources": []
             }
 
@@ -75,20 +92,7 @@ def generate_rag_response(query, max_search_results=3):
         # Log context length
         logger.info(f"Context built with {len(context)} characters")
         
-        # Create an improved system message with better instructions
-        system_message = SystemMessage(content="""
-You are a knowledgeable support assistant helping users with their questions.
-Your responses should be:
-1. Accurate and based only on the context provided
-2. Concise but complete
-3. Helpful and user-friendly
-4. Well-structured with clear organization
-
-If the context doesn't contain information relevant to the question, be honest about not having enough information.
-Do not make up facts or information not present in the context.
-        """)
-        
-        # Create user message with improved format
+        # Add user message to conversation history
         user_message = UserMessage(content=f"""
 I need information about the following question:
 
@@ -100,24 +104,24 @@ Here is the relevant information from our support documentation:
 
 Please provide a comprehensive answer based only on this information.
         """)
-        
-        # Create messages using SDK models
-        messages = [system_message, user_message]
+        conversation_history.append(user_message)
 
         # Log that we're calling the API
         logger.info(f"Calling Azure OpenAI API with model: {MODEL_NAME}")
         
         # Call OpenAI using the SDK client
         response = client.complete(
-            messages=messages,
-            max_tokens=300,  # Increased for more comprehensive responses
-            temperature=0.7,  # Slightly reduced for more focused responses
+            messages=conversation_history,
+            max_tokens=200,
+            temperature=0.7,
             top_p=1.0,
             model=MODEL_NAME
         )
         
-        # Extract the answer
+        # Extract the answer and add it to the conversation history
         answer = response.choices[0].message.content
+        assistant_message = AssistantMessage(content=answer)
+        conversation_history.append(assistant_message)
         
         # Print the answer to terminal with clear formatting
         print("\n" + "="*80)
@@ -135,7 +139,11 @@ Please provide a comprehensive answer based only on this information.
 
     except Exception as e:
         logger.error(f"Error: {str(e)}", exc_info=True)
+        error_message = AssistantMessage(content=f"An error occurred while generating the response: {str(e)}")
+        conversation_history.append(UserMessage(content=query))
+        conversation_history.append(error_message)
+        
         return {
-            "answer": f"An error occurred while generating the response: {str(e)}",
+            "answer": error_message.content,
             "sources": sources
         }
