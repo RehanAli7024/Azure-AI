@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
 MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL", "gpt-4")
+AZURE_OPENAI_DEPLOYMENT = MODEL_NAME
 
 # Validate required environment variables
 if not OPENAI_ENDPOINT or not OPENAI_KEY:
@@ -63,7 +64,7 @@ conversation_history = [
     SystemMessage(content=SYSTEM_PROMPT)
 ]
 
-def generate_rag_response(query, max_search_results=3):
+def generate_rag_response(query, document_ids=None, max_search_results=3):
     """
     Generate a response using RAG with the Azure AI Inference SDK while retaining conversation history.
     """
@@ -75,7 +76,7 @@ def generate_rag_response(query, max_search_results=3):
         
         # Document processing
         logger.debug(f"Searching for documents with query: '{query}', max results: {max_search_results}")
-        search_results = search_documents(query, top=max_search_results)
+        search_results = search_documents(query, top=max_search_results, document_ids=document_ids)
         
         if not search_results.get("success"):
             logger.error(f"Search failed: {search_results.get('error')}")
@@ -89,13 +90,57 @@ def generate_rag_response(query, max_search_results=3):
         
         if not search_results.get("results"):
             logger.warning("No relevant search results found")
-            response_message = AssistantMessage(content="I couldn't find any relevant information to answer your question.")
-            conversation_history.append(UserMessage(content=query))
-            conversation_history.append(response_message)
-            return {
-                "answer": response_message.content,
-                "sources": []
-            }
+            # Instead of giving up, we'll still try to provide a helpful response
+            # Prepare a context-aware prompt for general customer support
+            support_prompt = f"""
+You are a helpful customer support assistant. The user has asked: "{query}" 
+No specific information was found in our knowledge base for this query.
+Please provide a helpful and friendly response anyway. If the query is a greeting or general question, 
+respond appropriately. If it's a specific question you don't have information about, 
+acknowledge that and offer to help in other ways a customer support agent would.
+Remember to be professional, friendly, and helpful at all times.
+"""
+            try:
+                # Call Azure OpenAI for a general response
+                chat_response = client.complete(
+                    messages=[
+                        SystemMessage(content=support_prompt),
+                        UserMessage(content=query)
+                    ],
+                    model=AZURE_OPENAI_DEPLOYMENT,
+                    temperature=0.7,
+                    max_tokens=800
+                )
+                
+                # Extract the response
+                if chat_response and chat_response.choices:
+                    response_message = chat_response.choices[0].message
+                    conversation_history.append(UserMessage(content=query))
+                    conversation_history.append(response_message)
+                    return {
+                        "answer": response_message.content,
+                        "sources": []
+                    }
+                else:
+                    # Fallback if the chat response is empty
+                    fallback_response = get_fallback_response(query)
+                    response_message = AssistantMessage(content=fallback_response)
+                    conversation_history.append(UserMessage(content=query))
+                    conversation_history.append(response_message)
+                    return {
+                        "answer": fallback_response,
+                        "sources": []
+                    }
+            except Exception as e:
+                logger.error(f"Error generating response without search results: {str(e)}")
+                fallback_response = get_fallback_response(query)
+                response_message = AssistantMessage(content=fallback_response)
+                conversation_history.append(UserMessage(content=query))
+                conversation_history.append(response_message)
+                return {
+                    "answer": fallback_response,
+                    "sources": []
+                }
 
         # Log number of results found
         result_count = len(search_results.get("results", []))
@@ -188,3 +233,22 @@ Please provide a comprehensive answer based only on this information.
             "answer": error_message.content,
             "sources": sources
         }
+
+def get_fallback_response(query):
+    """Generate a fallback response based on the query type"""
+    query_lower = query.lower()
+    
+    # Check for greetings
+    if any(greeting in query_lower for greeting in ["hello", "hi", "hey", "greetings"]):
+        return "Hello! I'm your customer support assistant. How can I help you today?"
+    
+    # Check for thanks
+    if any(thanks in query_lower for thanks in ["thank", "thanks", "appreciate"]):
+        return "You're welcome! I'm here to help if you need anything else."
+    
+    # Check for goodbye
+    if any(bye in query_lower for bye in ["bye", "goodbye", "see you"]):
+        return "Goodbye! Feel free to come back if you have more questions. Have a great day!"
+    
+    # Generic response for other queries
+    return "I don't have specific information about that in my knowledge base. As a customer support assistant, I'd be happy to help with any other questions you might have. Is there something else I can assist you with?"

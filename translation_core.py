@@ -83,6 +83,46 @@ class SimpleTranslator:
         except Exception as e:
             print(f"Translation error: {str(e)}")
             return text
+            
+    def translate_text(self, text, from_language=None, to_language=None):
+        """
+        Alternative method for translate - used by the Flask app
+        Follows different parameter order to match how it's called in app.py
+        
+        Args:
+            text (str): Text to translate
+            from_language (str): Source language code
+            to_language (str): Target language code
+            
+        Returns:
+            dict: Dictionary with success flag and translated text or error
+        """
+        try:
+            if not text or not to_language:
+                return {
+                    'success': False,
+                    'error': 'Text and target language are required',
+                    'translated_text': text
+                }
+                
+            # Use the existing translate method
+            translated_text = self.translate(text, to_language, from_language)
+            
+            return {
+                'success': True,
+                'translated_text': translated_text,
+                'source_language': from_language or 'auto',
+                'target_language': to_language
+            }
+            
+        except Exception as e:
+            error_message = f"Translation error: {str(e)}"
+            print(error_message)
+            return {
+                'success': False,
+                'error': error_message,
+                'translated_text': text  # Return original text on error
+            }
 
 # Example phrases dictionary
 EXAMPLE_PHRASES = {

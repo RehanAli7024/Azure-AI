@@ -2,227 +2,283 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ChatSection.css';
 
-const ChatSection = ({ currentLanguage }) => {
+const ChatSection = ({ selectedLanguage, botId }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [sources, setSources] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Add initial bot message when component mounts
-  useEffect(() => {
-    setMessages([{
-      id: 1,
-      text: "Hello! I can help answer questions about your documents. What would you like to know?",
-      isUser: false,
-    }]);
-  }, []);
-
-  // Add welcome message when language changes
-  useEffect(() => {
-    const translateWelcomeMessage = async () => {
-      if (currentLanguage !== 'en' && messages.length > 0) {
-        try {
-          // Add system message about translation
-          const translationNotice = {
-            id: Date.now(),
-            text: `I'll now respond in ${getLanguageName(currentLanguage)}.`,
-            isUser: false,
-          };
-          setMessages(prevMessages => [...prevMessages, translationNotice]);
-        } catch (error) {
-          console.error('Error translating welcome message:', error);
-        }
-      }
-    };
-
-    translateWelcomeMessage();
-  }, [currentLanguage, messages.length]);
-
-  // Auto-scroll to the bottom of the chat when messages update
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Get language name from language code
-  const getLanguageName = (languageCode) => {
-    const languages = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'it': 'Italian',
-      'ja': 'Japanese',
-      'zh-Hans': 'Chinese',
-      'ru': 'Russian',
-      'ar': 'Arabic',
-      'hi': 'Hindi',
-      'ko': 'Korean'
-    };
-    
-    return languages[languageCode] || languageCode;
-  };
-
   // Scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Translate text based on current language
-  const translateText = async (text, targetLang, sourceLang = 'en') => {
-    if (targetLang === 'en' || !text) {
-      return text;
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    
-    try {
-      const response = await axios.post('http://localhost:5000/translate', {
-        text,
-        to_language: targetLang,
-        from_language: sourceLang
-      });
-      
-      if (response.data.success) {
-        return response.data.translated_text;
-      }
-      
-      return text;
-    } catch (error) {
-      console.error('Translation error:', error);
-      return text;
-    }
-  };
+  }, [messages.length]);
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  // Handle sending new message
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim()) {
+      return;
+    }
+    
+    const messageToSend = newMessage.trim();
+    setNewMessage('');
     
     // Add user message to chat
-    const userMessageObj = {
-      id: Date.now(),
-      text: newMessage,
-      isUser: true,
+    const userMessage = {
+      id: Date.now().toString(),
+      text: messageToSend,
+      sender: 'user',
+      timestamp: new Date().toLocaleTimeString()
     };
     
-    setMessages(prevMessages => [...prevMessages, userMessageObj]);
-    setNewMessage('');
+    setMessages(prevMessages => [...prevMessages, userMessage]);
     setIsLoading(true);
     
     try {
-      // If not English, translate the message to English
-      let messageToSend = newMessage;
-      if (currentLanguage !== 'en') {
-        messageToSend = await translateText(newMessage, 'en', currentLanguage);
+      // Build request payload, including bot ID if available
+      const payload = {
+        query: messageToSend,
+        language: selectedLanguage // Send the selected language to the backend
+      };
+      
+      // Add bot ID if provided
+      if (botId) {
+        payload.bot_id = botId;
       }
       
       // Send message to backend
-      const response = await axios.post('http://localhost:5000/chat', {
-        query: messageToSend
-      });
+      const response = await axios.post('http://localhost:5000/chat', payload);
       
       if (response.data.success) {
-        // If not English, translate the response back
-        let answerToDisplay = response.data.answer;
-        if (currentLanguage !== 'en') {
-          answerToDisplay = await translateText(response.data.answer, currentLanguage, 'en');
-        }
+        // Get response text - handle both response formats
+        const responseText = response.data.answer || response.data.response || "I don't have an answer for that.";
         
-        // Add bot response
-        const botMessageObj = {
-          id: Date.now() + 1,
-          text: answerToDisplay,
-          isUser: false,
+        // No need to translate on the client side anymore since we're doing it on the server
+        
+        // Add bot message to chat
+        const botMessage = {
+          id: (Date.now() + 1).toString(),
+          text: responseText,
+          sources: response.data.sources || [],
+          sender: 'bot',
+          timestamp: new Date().toLocaleTimeString(),
+          botId: botId || response.data.bot_id // Keep track of which bot responded
         };
         
-        setMessages(prevMessages => [...prevMessages, botMessageObj]);
-        
-        // Update sources if available
-        if (response.data.sources && response.data.sources.length > 0) {
-          setSources(response.data.sources);
-        } else {
-          setSources([]);
-        }
+        setMessages(prevMessages => [...prevMessages, botMessage]);
       } else {
         // Handle error
-        const errorMessage = currentLanguage !== 'en' ? 
-          await translateText('Sorry, I encountered an error. Please try again.', currentLanguage, 'en') :
-          'Sorry, I encountered an error. Please try again.';
-        
-        const errorMessageObj = {
-          id: Date.now() + 1,
-          text: errorMessage,
-          isUser: false,
+        console.error('Error from chat endpoint:', response.data.error);
+        const errorMessage = {
+          id: (Date.now() + 1).toString(),
+          text: selectedLanguage === 'en' 
+            ? 'Sorry, I encountered an error. Please try again.' 
+            : 'Sorry, I encountered an error. Please try again.',
+          sender: 'bot',
+          isError: true,
+          timestamp: new Date().toLocaleTimeString()
         };
         
-        setMessages(prevMessages => [...prevMessages, errorMessageObj]);
+        setMessages(prevMessages => [...prevMessages, errorMessage]);
       }
     } catch (error) {
-      // Handle network error
-      const networkErrorMsg = currentLanguage !== 'en' ?
-        await translateText('Network error. Please check your connection and try again.', currentLanguage, 'en') :
-        'Network error. Please check your connection and try again.';
+      console.error('Error sending message:', error);
       
-      const networkErrorObj = {
-        id: Date.now() + 1,
-        text: networkErrorMsg,
-        isUser: false,
+      // Add error message to chat
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        text: selectedLanguage === 'en' 
+          ? 'Network error. Please check your connection and try again.' 
+          : 'Network error. Please check your connection and try again.',
+        sender: 'bot',
+        isError: true,
+        timestamp: new Date().toLocaleTimeString()
       };
       
-      setMessages(prevMessages => [...prevMessages, networkErrorObj]);
-      console.error('Chat error:', error);
+      setMessages(prevMessages => [...prevMessages, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Chat message elements
+  const chatMessages = messages.map(message => (
+    <div 
+      key={message.id}
+      className={`message ${message.sender} ${message.isError ? 'error' : ''}`}
+    >
+      <div className="message-content">
+        <div className="message-text">{message.text}</div>
+        <div className="message-timestamp">{message.timestamp}</div>
+      </div>
+    </div>
+  ));
+
+  // Bot typing indicator
+  const typingIndicator = isLoading && (
+    <div className="message bot typing">
+      <div className="dots">
+        <span className="dot"></span>
+        <span className="dot"></span>
+        <span className="dot"></span>
+      </div>
+    </div>
+  );
+
+  // Welcome message based on language
+  const getWelcomeMessage = () => {
+    switch (selectedLanguage) {
+      case 'es':
+        return '¡Hola! ¿En qué puedo ayudarte hoy?';
+      case 'fr':
+        return 'Bonjour! Comment puis-je vous aider aujourd\'hui?';
+      case 'de':
+        return 'Hallo! Wie kann ich Ihnen heute helfen?';
+      case 'it':
+        return 'Ciao! Come posso aiutarti oggi?';
+      case 'ja':
+        return 'こんにちは！今日はどのようにお手伝いできますか？';
+      case 'zh-Hans':
+        return '你好！我今天能帮你什么忙？';
+      case 'zh-Hant':
+        return '你好！我今天能幫你什麼忙？';
+      case 'ru':
+        return 'Здравствуйте! Чем я могу вам помочь сегодня?';
+      case 'ar':
+        return 'مرحبا! كيف يمكنني مساعدتك اليوم؟';
+      case 'hi':
+        return 'नमस्ते! आज मैं आपकी कैसे मदद कर सकता हूँ?';
+      case 'ko':
+        return '안녕하세요! 오늘 어떻게 도와드릴까요?';
+      case 'pt':
+        return 'Olá! Como posso ajudá-lo hoje?';
+      case 'nl':
+        return 'Hallo! Hoe kan ik u vandaag helpen?';
+      case 'tr':
+        return 'Merhaba! Bugün size nasıl yardımcı olabilirim?';
+      case 'pl':
+        return 'Cześć! Jak mogę ci dziś pomóc?';
+      case 'sv':
+        return 'Hej! Hur kan jag hjälpa dig idag?';
+      default:
+        return 'Hello! How can I help you today?';
+    }
+  };
+
+  // Specialized bot message
+  const getBotContextMessage = () => {
+    switch (selectedLanguage) {
+      case 'es':
+        return 'Actualmente estás chateando con un bot especializado.';
+      case 'fr':
+        return 'Vous discutez actuellement avec un bot spécialisé.';
+      case 'de':
+        return 'Sie chatten derzeit mit einem spezialisierten Bot.';
+      case 'it':
+        return 'Stai attualmente chattando con un bot specializzato.';
+      case 'ja':
+        return '現在、専門のボットとチャットしています。';
+      case 'zh-Hans':
+        return '您目前正在与专业机器人聊天。';
+      case 'zh-Hant':
+        return '您目前正在與專業機器人聊天。';
+      case 'ru':
+        return 'В настоящее время вы общаетесь со специализированным ботом.';
+      case 'ar':
+        return 'أنت تتحدث حاليًا مع روبوت متخصص.';
+      case 'hi':
+        return 'आप वर्तमान में एक विशेष बॉट के साथ चैट कर रहे हैं।';
+      case 'ko':
+        return '현재 전문 봇과 채팅하고 있습니다.';
+      case 'pt':
+        return 'Você está atualmente conversando com um bot especializado.';
+      case 'nl':
+        return 'U chat momenteel met een gespecialiseerde bot.';
+      case 'tr':
+        return 'Şu anda özel bir botla sohbet ediyorsunuz.';
+      case 'pl':
+        return 'Obecnie rozmawiasz z wyspecjalizowanym botem.';
+      case 'sv':
+        return 'Du chattar för närvarande med en specialiserad bot.';
+      default:
+        return 'You\'re currently chatting with a specialized bot.';
+    }
+  };
+
+  // Empty chat message to show initially
+  const emptyChatMessage = (
+    <div className="welcome-message">
+      <div className="bot-avatar">🤖</div>
+      <div className="welcome-text">
+        <p>{getWelcomeMessage()}</p>
+        {botId && (
+          <p className="bot-context-message">
+            {getBotContextMessage()}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="chat-section">
-      <div className="messages" id="messages">
-        {messages.map(message => (
-          <div key={message.id} className={`message ${message.isUser ? 'user' : 'bot'}`}>
-            <div className="message-content">{message.text}</div>
-          </div>
-        ))}
-        
-        {isLoading && (
-          <div className="message bot">
-            <div className="message-content loading-indicator">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
-        )}
-        
+      <div className="chat-container">
+        {emptyChatMessage}
+        {chatMessages}
+        {typingIndicator}
         <div ref={messagesEndRef} />
       </div>
       
-      {sources.length > 0 && (
-        <div id="sources-panel" className="sources-panel">
-          <h3>Sources:</h3>
-          <ul id="sources-list" className="sources-list">
-            {sources.map((source, index) => (
-              <li key={index} className="source-item">
-                <div className="source-name">{source.file_name}</div>
-                <div className="source-meta">
-                  {source.page_count > 0 && <span>Pages: {source.page_count}</span>}
-                  <span>Relevance: {(source.score * 100).toFixed(1)}%</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
-      <form id="chat-form" className="chat-input" onSubmit={handleSubmit}>
-        <input 
-          type="text" 
-          id="message-input" 
-          placeholder="Ask about your documents..." 
-          autoComplete="off"
+      <form className="message-form" onSubmit={handleSendMessage}>
+        <input
+          type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
+          placeholder={
+            selectedLanguage === 'en' ? 'Type your message...' : 
+            selectedLanguage === 'es' ? 'Escribe tu mensaje...' :
+            selectedLanguage === 'fr' ? 'Tapez votre message...' :
+            selectedLanguage === 'de' ? 'Geben Sie Ihre Nachricht ein...' :
+            selectedLanguage === 'it' ? 'Scrivi il tuo messaggio...' :
+            selectedLanguage === 'ja' ? 'メッセージを入力...' :
+            selectedLanguage === 'zh-Hans' ? '输入您的消息...' :
+            selectedLanguage === 'zh-Hant' ? '輸入您的消息...' :
+            selectedLanguage === 'ru' ? 'Введите ваше сообщение...' :
+            selectedLanguage === 'ar' ? 'اكتب رسالتك...' :
+            selectedLanguage === 'hi' ? 'अपना संदेश लिखें...' :
+            selectedLanguage === 'ko' ? '메시지를 입력하세요...' :
+            selectedLanguage === 'pt' ? 'Digite sua mensagem...' :
+            selectedLanguage === 'nl' ? 'Typ uw bericht...' :
+            selectedLanguage === 'tr' ? 'Mesajınızı yazın...' :
+            selectedLanguage === 'pl' ? 'Wpisz swoją wiadomość...' :
+            selectedLanguage === 'sv' ? 'Skriv ditt meddelande...' :
+            'Type your message...'
+          }
+          disabled={isLoading}
         />
-        <button type="submit" disabled={isLoading}>Send</button>
+        <button type="submit" disabled={!newMessage.trim() || isLoading}>
+          {selectedLanguage === 'en' ? 'Send' : 
+           selectedLanguage === 'es' ? 'Enviar' :
+           selectedLanguage === 'fr' ? 'Envoyer' :
+           selectedLanguage === 'de' ? 'Senden' :
+           selectedLanguage === 'it' ? 'Invia' :
+           selectedLanguage === 'ja' ? '送信' :
+           selectedLanguage === 'zh-Hans' ? '发送' :
+           selectedLanguage === 'zh-Hant' ? '發送' :
+           selectedLanguage === 'ru' ? 'Отправить' :
+           selectedLanguage === 'ar' ? 'إرسال' :
+           selectedLanguage === 'hi' ? 'भेजें' :
+           selectedLanguage === 'ko' ? '보내기' :
+           selectedLanguage === 'pt' ? 'Enviar' :
+           selectedLanguage === 'nl' ? 'Verstuur' :
+           selectedLanguage === 'tr' ? 'Gönder' :
+           selectedLanguage === 'pl' ? 'Wyślij' :
+           selectedLanguage === 'sv' ? 'Skicka' :
+           'Send'}
+        </button>
       </form>
     </div>
   );

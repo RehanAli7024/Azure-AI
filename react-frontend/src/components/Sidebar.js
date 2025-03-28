@@ -1,20 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Sidebar.css';
 
-const Sidebar = ({ uploadedDocuments, onDocumentUpload, currentLanguage }) => {
+const Sidebar = ({ onDocumentUploaded, documents, selectedLanguage, currentBotId }) => {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState({ message: '', type: '' });
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState([]);
 
-  // Handle file selection
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-    } else {
-      setSelectedFile(null);
+  // Load initial documents if provided
+  useEffect(() => {
+    if (documents && documents.length > 0) {
+      setUploadedDocuments(documents);
     }
+  }, [documents]);
+
+  // Show upload status message
+  const showUploadStatus = (message, type = 'info') => {
+    setUploadStatus({ message, type });
+    // Clear status after 5 seconds
+    setTimeout(() => setUploadStatus(null), 5000);
   };
 
   // Translate text based on current language
@@ -41,6 +46,13 @@ const Sidebar = ({ uploadedDocuments, onDocumentUpload, currentLanguage }) => {
     }
   };
 
+  // Handle file selection
+  const handleFileChange = (e) => {
+    if (e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
   // Handle document upload
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -53,6 +65,11 @@ const Sidebar = ({ uploadedDocuments, onDocumentUpload, currentLanguage }) => {
     // Create form data
     const formData = new FormData();
     formData.append('file', selectedFile);
+    
+    // Add bot ID if available
+    if (currentBotId) {
+      formData.append('bot_id', currentBotId);
+    }
     
     // Update UI
     setIsUploading(true);
@@ -67,101 +84,140 @@ const Sidebar = ({ uploadedDocuments, onDocumentUpload, currentLanguage }) => {
       
       if (response.data.success) {
         // Add document to list
-        const docItem = {
-          id: Date.now(),
+        const newDoc = {
+          id: response.data.document_id,
           name: selectedFile.name,
-          uploadedAt: new Date().toLocaleString(),
-          blobName: response.data.blob_name,
-          pageCount: response.data.page_count || 0
+          timestamp: new Date().toLocaleString()
         };
         
-        onDocumentUpload(docItem);
-        
-        // Reset form
+        setUploadedDocuments(prev => [...prev, newDoc]);
         setSelectedFile(null);
-        document.getElementById('document-file').value = '';
         
-        // Show translated success message
-        let statusMessage = `${selectedFile.name} uploaded successfully!`;
-        if (currentLanguage !== 'en') {
-          statusMessage = await translateText(statusMessage, currentLanguage);
+        // Reset file input
+        const fileInput = document.getElementById('file-upload');
+        if (fileInput) fileInput.value = '';
+        
+        // Show success message
+        const successMessage = await translateText(
+          'Document uploaded successfully!',
+          selectedLanguage
+        );
+        
+        showUploadStatus(successMessage, 'success');
+        
+        // Notify parent component
+        if (onDocumentUploaded) {
+          onDocumentUploaded(newDoc);
         }
-        showUploadStatus(statusMessage, 'success');
       } else {
-        let errorMessage = response.data.error || 'Upload failed';
-        if (currentLanguage !== 'en') {
-          errorMessage = await translateText(errorMessage, currentLanguage);
-        }
+        // Show error message
+        const errorMessage = await translateText(
+          `Upload failed: ${response.data.error}`,
+          selectedLanguage
+        );
+        
         showUploadStatus(errorMessage, 'error');
       }
     } catch (error) {
-      let errorMessage = 'Error uploading document';
-      if (currentLanguage !== 'en') {
-        errorMessage = await translateText(errorMessage, currentLanguage);
-      }
-      showUploadStatus(errorMessage, 'error');
       console.error('Upload error:', error);
+      
+      // Show error message
+      const errorMessage = await translateText(
+        'Error uploading document. Please try again.',
+        selectedLanguage
+      );
+      
+      showUploadStatus(errorMessage, 'error');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  // Show upload status message
-  const showUploadStatus = (message, type) => {
-    setUploadStatus({ message, type });
-    
-    if (type === 'success' || type === 'info') {
-      setTimeout(() => {
-        setUploadStatus({ message: '', type: '' });
-      }, 5000);
     }
   };
 
   return (
     <div className="sidebar">
       <div className="upload-section">
-        <h2>Upload Document</h2>
-        <form id="upload-form" onSubmit={handleUpload}>
+        <h3>
+          {selectedLanguage === 'en' ? 'Upload Documents' : (
+            selectedLanguage === 'es' ? 'Subir Documentos' : 
+            selectedLanguage === 'fr' ? 'Télécharger des Documents' : 
+            'Upload Documents'
+          )}
+        </h3>
+        
+        <form onSubmit={handleUpload}>
           <div className="file-input-container">
-            <input 
-              type="file" 
-              id="document-file" 
-              accept=".pdf,.docx,.txt,.doc"
+            <input
+              type="file"
+              id="file-upload"
               onChange={handleFileChange}
+              accept=".pdf,.docx,.txt"
+              disabled={isUploading}
             />
-            <div className="file-info">
-              {selectedFile ? selectedFile.name : 'No file selected'}
-            </div>
           </div>
+          
           <button 
             type="submit" 
-            id="upload-btn" 
-            disabled={isUploading}
+            className="upload-button"
+            disabled={!selectedFile || isUploading}
           >
-            {isUploading ? 'Uploading...' : 'Upload Document'}
+            {isUploading ? (
+              selectedLanguage === 'en' ? 'Uploading...' : 
+              selectedLanguage === 'es' ? 'Subiendo...' : 
+              selectedLanguage === 'fr' ? 'Téléchargement...' : 
+              'Uploading...'
+            ) : (
+              selectedLanguage === 'en' ? 'Upload' : 
+              selectedLanguage === 'es' ? 'Subir' : 
+              selectedLanguage === 'fr' ? 'Télécharger' : 
+              'Upload'
+            )}
           </button>
         </form>
-        {uploadStatus.message && (
-          <div id="upload-status" className={uploadStatus.type}>
+        
+        {uploadStatus && (
+          <div className={`upload-status ${uploadStatus.type}`}>
             {uploadStatus.message}
+          </div>
+        )}
+        
+        {currentBotId && (
+          <div className="bot-info-notice">
+            {selectedLanguage === 'en' ? 'Uploading to selected bot' : 
+             selectedLanguage === 'es' ? 'Subiendo al bot seleccionado' :
+             selectedLanguage === 'fr' ? 'Téléchargement vers le bot sélectionné' :
+             'Uploading to selected bot'}
           </div>
         )}
       </div>
       
       <div className="documents-section">
-        <h2>Uploaded Documents</h2>
-        <ul id="documents-list">
-          {uploadedDocuments.length === 0 ? (
-            <li>No documents uploaded yet</li>
-          ) : (
-            uploadedDocuments.map(doc => (
-              <li key={doc.id}>
-                <div className="document-name">{doc.name}</div>
-                <div className="document-date">Uploaded: {doc.uploadedAt}</div>
+        <h3>
+          {selectedLanguage === 'en' ? 'Uploaded Documents' : 
+           selectedLanguage === 'es' ? 'Documentos Subidos' : 
+           selectedLanguage === 'fr' ? 'Documents Téléchargés' : 
+           'Uploaded Documents'}
+        </h3>
+        
+        {uploadedDocuments.length > 0 ? (
+          <ul className="documents-list">
+            {uploadedDocuments.map((doc, index) => (
+              <li key={doc.id || index} className="document-item">
+                <div className="document-icon">📄</div>
+                <div className="document-info">
+                  <div className="document-name">{doc.name}</div>
+                  <div className="document-timestamp">{doc.timestamp}</div>
+                </div>
               </li>
-            ))
-          )}
-        </ul>
+            ))}
+          </ul>
+        ) : (
+          <div className="no-documents">
+            {selectedLanguage === 'en' ? 'No documents uploaded yet' : 
+             selectedLanguage === 'es' ? 'Aún no se han subido documentos' : 
+             selectedLanguage === 'fr' ? 'Aucun document téléchargé pour le moment' : 
+             'No documents uploaded yet'}
+          </div>
+        )}
       </div>
     </div>
   );

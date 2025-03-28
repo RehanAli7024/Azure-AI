@@ -173,7 +173,7 @@ def ensure_search_index_exists():
         logger.info(f"Creating new search index '{search_index_name}'")
         
         fields = [
-            SimpleField(name="id", type=SearchFieldDataType.String, key=True),
+            SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
             SimpleField(name="blob_name", type=SearchFieldDataType.String, filterable=True),
             SimpleField(name="blob_url", type=SearchFieldDataType.String),
             SimpleField(name="file_name", type=SearchFieldDataType.String, filterable=True, sortable=True),
@@ -271,19 +271,63 @@ def process_document(file_path, blob_name=None):
         "search_index": search_index_name
     }
 
-def search_documents(query_text, top=5):
+def search_documents(query_text, top=5, document_ids=None):
+    """
+    Search for documents matching the query text.
+    
+    Args:
+        query_text (str): The query to search for
+        top (int): Maximum number of results to return
+        document_ids (list): Optional list of document IDs to filter search results
+    
+    Returns:
+        dict: Search results with success flag
+    """
+    logger.info(f"Searching for: '{query_text}', max results: {top}")
+    if document_ids:
+        logger.info(f"Filtering search to document IDs: {document_ids}")
+    
     try:
-        results = search_client.search(
-            search_text=query_text,
-            top=top,
-            highlight_fields="content,paragraph_content",
-            highlight_pre_tag="<em>",
-            highlight_post_tag="</em>",
-            include_total_count=True
-        )
+        # Build search options
+        search_options = {
+            "search_text": query_text,
+            "top": top,
+            "highlight_fields": "content,paragraph_content",
+            "highlight_pre_tag": "<em>",
+            "highlight_post_tag": "</em>",
+            "include_total_count": True
+        }
+        
+        # Add filter if document_ids is provided - only try if IDs are present
+        if document_ids and len(document_ids) > 0:
+            try:
+                # Try to use filter if supported
+                filter_expr = " or ".join([f"id eq '{doc_id}'" for doc_id in document_ids])
+                search_options["filter"] = filter_expr
+                logger.info(f"Using filter expression: {filter_expr}")
+                
+                # Execute search with filter
+                results = search_client.search(**search_options)
+                
+            except Exception as filter_error:
+                # If filtering fails, fall back to searching all documents
+                logger.warning(f"Filter failed, falling back to full search: {str(filter_error)}")
+                del search_options["filter"]  # Remove the filter option
+                
+                # Execute search without filter (we'll filter manually)
+                results = search_client.search(**search_options)
+                
+        else:
+            # No document_ids provided, search all documents
+            results = search_client.search(**search_options)
         
         formatted_results = []
         for result in results:
+            # If we have document_ids but filtering failed, do manual filtering here
+            if document_ids and len(document_ids) > 0 and "filter" not in search_options:
+                if result["id"] not in document_ids:
+                    continue  # Skip documents that aren't in our document_ids list
+            
             highlights = []
             if hasattr(result, 'highlights'):
                 if 'paragraph_content' in result.highlights:
@@ -366,7 +410,12 @@ def main():
         
         elif choice == "2":
             query = input("\nEnter your search query: ")
-            results = search_documents(query)
+            document_ids = input("\nEnter document IDs (comma-separated, or leave blank for all): ")
+            if document_ids.strip():
+                document_ids = [doc_id.strip() for doc_id in document_ids.split(',')]
+            else:
+                document_ids = None
+            results = search_documents(query, document_ids=document_ids)
             
             if results.get("success"):
                 print(f"\nFound {results.get('count')} results (total: {results.get('total')})")

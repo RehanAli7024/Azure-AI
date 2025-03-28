@@ -1,0 +1,161 @@
+.bot-details-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  margin-right: 16px;
+}
+
+.back-button:hover {
+  text-decoration: underline;
+}
+
+.details-header h2 {
+  margin: 0;
+  color: #343a40;
+  font-size: 1.6rem;
+}
+
+.bot-info-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.bot-info-section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #495057;
+  font-size: 1.2rem;
+}
+
+.bot-description {
+  color: #6c757d;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.bot-metadata {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.bot-documents-section {
+  margin-bottom: 24px;
+}
+
+.bot-documents-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #495057;
+  font-size: 1.2rem;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.document-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.document-name {
+  font-size: 0.95rem;
+  color: #495057;
+}
+
+.remove-document-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.remove-document-button:hover {
+  background-color: #c82333;
+}
+
+.no-documents-message {
+  text-align: center;
+  padding: 24px;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.no-documents-message p {
+  margin: 8px 0;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.bot-actions-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+.chat-button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 24px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chat-button:hover {
+  background-color: #218838;
+}
+
+.no-bot-selected {
+  text-align: center;
+  padding: 40px 0;
+  color: #6c757d;
+}
+
+.no-bot-selected p {
+  margin: 8px 0;
+}
