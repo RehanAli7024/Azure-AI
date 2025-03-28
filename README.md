@@ -6,12 +6,12 @@
 </p>
 
 <p align="center">
-  <a href="#key-features">Features</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#demo">Demo</a> •
-  <a href="#roadmap">Roadmap</a>
+  <a href="#-key-features">Features</a> •
+  <a href="#-tech-stack">Tech Stack</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-getting-started">Getting Started</a> •
+  <a href="#-demo">Demo</a> •
+  <a href="#-roadmap">Roadmap</a>
 </p>
 
 ## 🌟 Overview
@@ -115,6 +115,7 @@ Access the application at `http://localhost:3000` after starting both the backen
 - **Analytics Dashboard** - Track usage patterns and improve responses
 - **Mobile Applications** - Native iOS and Android apps
 - **Enterprise Integration** - Connect with CRM, ticketing systems, and other business tools
+- **API Marketplace** - Sell our API to businesses for seamless integration into their existing applications and services
 
 ## 💖 Acknowledgements
 
