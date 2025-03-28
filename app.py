@@ -137,18 +137,12 @@ def chat():
                 logger.debug(f"Using document_ids for bot {bot_id}: {document_ids}")
         
         # Generate response based on the provided query
-        result = generate_rag_response(query, document_ids=document_ids)
+        result = generate_rag_response(query, document_ids=document_ids, language=language)
         
         answer = result.get("answer", "")
         sources = result.get("sources", [])
         
-        # Translate the answer if not in English
-        if language != 'en' and translator:
-            translation_result = translator.translate_text(answer, from_language='en', to_language=language)
-            if translation_result.get('success'):
-                answer = translation_result.get('translated_text', answer)
-            else:
-                logger.warning(f"Translation failed: {translation_result.get('error')}")
+        # We don't need to translate here anymore as it's handled in generate_rag_response
         
         return jsonify({
             'success': True, 

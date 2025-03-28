@@ -6,6 +6,7 @@ from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessa
 from azure.core.credentials import AzureKeyCredential
 from document_processor import search_documents
 from dotenv import load_dotenv
+from translation_core import SimpleTranslator  # Import translator
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +17,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Initialize translator
+translator = SimpleTranslator()
+logger.info("Translator initialized successfully")
 
 # Get credentials from environment variables
 OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -59,20 +64,45 @@ Do not make up facts or information not present in the context.
 
 logger.debug(f"System prompt defined: {len(SYSTEM_PROMPT)} characters")
 
-# Initialize conversation history
-conversation_history = [
-    SystemMessage(content=SYSTEM_PROMPT)
-]
+# Initialize conversation history - changing to a function to get a fresh history each time
+def get_initial_conversation_history():
+    return [SystemMessage(content=SYSTEM_PROMPT)]
 
-def generate_rag_response(query, document_ids=None, max_search_results=3):
+def generate_rag_response(query, document_ids=None, max_search_results=3, language='en'):
     """
     Generate a response using RAG with the Azure AI Inference SDK while retaining conversation history.
+    
+    Args:
+        query (str): User's query in any language
+        document_ids (list, optional): Specific document IDs to search within
+        max_search_results (int, optional): Maximum number of search results to return
+        language (str, optional): Language code of the user's query. Default is 'en' (English)
     """
     sources = []
+    original_query = query
+    original_language = language
+    
+    # Get a fresh conversation history for each request to avoid accumulation issues
+    conversation_history = get_initial_conversation_history()
+    
     try:
         # Log the received query
-        logger.info(f"Received query: '{query}'")
+        logger.info(f"Received query: '{query}' in language: {language}")
         logger.debug(f"Current conversation history length: {len(conversation_history)} messages")
+        
+        # Translate query to English if it's not already in English
+        if language != 'en':
+            logger.info(f"Translating query from {language} to English")
+            try:
+                translation_result = translator.translate_text(query, from_language=language, to_language='en')
+                if translation_result.get('success'):
+                    query = translation_result.get('translated_text', query)
+                    logger.info(f"Translated query: '{query}'")
+                else:
+                    logger.warning(f"Query translation failed: {translation_result.get('error')}")
+            except Exception as e:
+                logger.error(f"Error translating query: {str(e)}")
+                # Continue with original query if translation fails
         
         # Document processing
         logger.debug(f"Searching for documents with query: '{query}', max results: {max_search_results}")
@@ -81,10 +111,21 @@ def generate_rag_response(query, document_ids=None, max_search_results=3):
         if not search_results.get("success"):
             logger.error(f"Search failed: {search_results.get('error')}")
             response_message = AssistantMessage(content="I encountered an error while searching for information. Please try again.")
-            conversation_history.append(UserMessage(content=query))
+            conversation_history.append(UserMessage(content=original_query))
             conversation_history.append(response_message)
+            
+            # Translate error message if needed
+            error_response = response_message.content
+            if language != 'en':
+                try:
+                    translation_result = translator.translate_text(error_response, from_language='en', to_language=language)
+                    if translation_result.get('success'):
+                        error_response = translation_result.get('translated_text', error_response)
+                except Exception as e:
+                    logger.error(f"Error translating error response: {str(e)}")
+            
             return {
-                "answer": response_message.content,
+                "answer": error_response,
                 "sources": []
             }
         
@@ -109,24 +150,45 @@ Remember to be professional, friendly, and helpful at all times.
                     ],
                     model=AZURE_OPENAI_DEPLOYMENT,
                     temperature=0.7,
-                    max_tokens=800
+                    max_tokens=200
                 )
                 
                 # Extract the response
                 if chat_response and chat_response.choices:
                     response_message = chat_response.choices[0].message
-                    conversation_history.append(UserMessage(content=query))
+                    conversation_history.append(UserMessage(content=original_query))
                     conversation_history.append(response_message)
+                    
+                    # Translate response back to original language if needed
+                    final_response = response_message.content
+                    if language != 'en':
+                        try:
+                            translation_result = translator.translate_text(final_response, from_language='en', to_language=language)
+                            if translation_result.get('success'):
+                                final_response = translation_result.get('translated_text', final_response)
+                        except Exception as e:
+                            logger.error(f"Error translating response: {str(e)}")
+                    
                     return {
-                        "answer": response_message.content,
+                        "answer": final_response,
                         "sources": []
                     }
                 else:
                     # Fallback if the chat response is empty
                     fallback_response = get_fallback_response(query)
                     response_message = AssistantMessage(content=fallback_response)
-                    conversation_history.append(UserMessage(content=query))
+                    conversation_history.append(UserMessage(content=original_query))
                     conversation_history.append(response_message)
+                    
+                    # Translate fallback response if needed
+                    if language != 'en':
+                        try:
+                            translation_result = translator.translate_text(fallback_response, from_language='en', to_language=language)
+                            if translation_result.get('success'):
+                                fallback_response = translation_result.get('translated_text', fallback_response)
+                        except Exception as e:
+                            logger.error(f"Error translating fallback response: {str(e)}")
+                    
                     return {
                         "answer": fallback_response,
                         "sources": []
@@ -135,8 +197,18 @@ Remember to be professional, friendly, and helpful at all times.
                 logger.error(f"Error generating response without search results: {str(e)}")
                 fallback_response = get_fallback_response(query)
                 response_message = AssistantMessage(content=fallback_response)
-                conversation_history.append(UserMessage(content=query))
+                conversation_history.append(UserMessage(content=original_query))
                 conversation_history.append(response_message)
+                
+                # Translate fallback response if needed
+                if language != 'en':
+                    try:
+                        translation_result = translator.translate_text(fallback_response, from_language='en', to_language=language)
+                        if translation_result.get('success'):
+                            fallback_response = translation_result.get('translated_text', fallback_response)
+                    except Exception as e:
+                        logger.error(f"Error translating fallback response: {str(e)}")
+                
                 return {
                     "answer": fallback_response,
                     "sources": []
@@ -175,7 +247,7 @@ Here is the relevant information from our support documentation:
 {context}
 
 Please provide a comprehensive answer based only on this information.
-        """
+"""
         
         logger.debug(f"Constructed prompt with context of {len(prompt_with_context)} characters")
         
@@ -215,8 +287,18 @@ Please provide a comprehensive answer based only on this information.
         print(answer)
         print("="*80 + "\n")
         
+        # Translate response back to original language if needed
+        final_response = answer
+        if language != 'en':
+            try:
+                translation_result = translator.translate_text(final_response, from_language='en', to_language=language)
+                if translation_result.get('success'):
+                    final_response = translation_result.get('translated_text', final_response)
+            except Exception as e:
+                logger.error(f"Error translating response: {str(e)}")
+        
         return {
-            "answer": answer,
+            "answer": final_response,
             "sources": sources
         }
 
@@ -226,11 +308,21 @@ Please provide a comprehensive answer based only on this information.
         logger.debug(f"Error details: {error_details}")
         
         error_message = AssistantMessage(content=f"An error occurred while generating the response: {str(e)}")
-        conversation_history.append(UserMessage(content=query))
+        conversation_history.append(UserMessage(content=original_query))
         conversation_history.append(error_message)
         
+        # Translate error message if needed
+        error_response = error_message.content
+        if language != 'en':
+            try:
+                translation_result = translator.translate_text(error_response, from_language='en', to_language=language)
+                if translation_result.get('success'):
+                    error_response = translation_result.get('translated_text', error_response)
+            except Exception as e:
+                logger.error(f"Error translating error response: {str(e)}")
+        
         return {
-            "answer": error_message.content,
+            "answer": error_response,
             "sources": sources
         }
 
