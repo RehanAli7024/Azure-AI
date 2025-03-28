@@ -3,6 +3,7 @@ import os
 import uuid
 import json
 import pytz
+import logging
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -12,51 +13,67 @@ from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes.models import (
     SearchIndex, SimpleField, SearchableField, 
-    SearchFieldDataType
+    SearchFieldDataType, CorsOptions, 
+    ScoringProfile, TextWeights
 )
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+logger.debug("Environment variables loaded")
 
 # Define Azure Storage connection details
 connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 container_name = os.getenv("STORAGE_CONTAINER_NAME", "chatbot-documents")
+logger.debug(f"Using storage container: {container_name}")
 
 # Define Form Recognizer details
 form_recognizer_endpoint = os.getenv("FORM_RECOGNIZER_ENDPOINT")
 form_recognizer_key = os.getenv("FORM_RECOGNIZER_KEY")
+logger.debug(f"Form Recognizer endpoint configured: {form_recognizer_endpoint}")
 
 # Define Search Service details
 search_endpoint = os.getenv("SEARCH_ENDPOINT")
 search_key = os.getenv("SEARCH_API_KEY")
 search_index_name = os.getenv("SEARCH_INDEX_NAME", "documents")
+logger.debug(f"Search service configured with index: {search_index_name}")
 
 # Initialize BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+logger.debug(f"Blob service client initialized for account: {blob_service_client.account_name}")
 
 # Create a container if it doesn't exist
 try:
     container_client = blob_service_client.get_container_client(container_name)
     if not container_client.exists():
         container_client = blob_service_client.create_container(container_name)
-        print(f"Container '{container_name}' created successfully.")
+        logger.info(f"Container '{container_name}' created successfully.")
     else:
-        print(f"Using existing container '{container_name}'.")
+        logger.info(f"Using existing container '{container_name}'.")
 except Exception as e:
-    print(f"Error accessing container: {e}")
+    logger.error(f"Error accessing container: {e}", exc_info=True)
 
 # Initialize Form Recognizer client
 document_analysis_client = DocumentAnalysisClient(
     endpoint=form_recognizer_endpoint, credential=AzureKeyCredential(form_recognizer_key)
 )
+logger.debug("Document analysis client initialized")
 
 # Initialize Search clients
 search_credential = AzureKeyCredential(search_key)
 search_index_client = SearchIndexClient(endpoint=search_endpoint, credential=search_credential)
 search_client = SearchClient(endpoint=search_endpoint, index_name=search_index_name, credential=search_credential)
+logger.debug("Search clients initialized")
 
 def upload_document(file_path, blob_name=None):
     try:
+        logger.debug(f"Starting document upload: {file_path}")
         if not blob_name:
             blob_name = f"{str(uuid.uuid4())}-{os.path.basename(file_path)}"
         
@@ -64,7 +81,7 @@ def upload_document(file_path, blob_name=None):
         
         with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
-            print(f"Document '{blob_name}' uploaded successfully.")
+            logger.info(f"Document '{blob_name}' uploaded successfully.")
         
         sas_token = generate_blob_sas(
             account_name=blob_service_client.account_name,
@@ -76,6 +93,7 @@ def upload_document(file_path, blob_name=None):
         )
         
         blob_url_with_sas = f"{blob_client.url}?{sas_token}"
+        logger.debug(f"Generated SAS token for blob access, expires in 1 hour")
         
         return {
             "success": True,
@@ -84,24 +102,29 @@ def upload_document(file_path, blob_name=None):
             "blob_url_with_sas": blob_url_with_sas
         }
     except Exception as e:
-        print(f"An error occurred while uploading the document: {e}")
+        logger.error(f"An error occurred while uploading the document: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
 def extract_text_from_document(blob_url_with_sas):
     try:
+        logger.debug(f"Starting text extraction from document at: {blob_url_with_sas[:50]}...")
         poller = document_analysis_client.begin_analyze_document_from_url(
             "prebuilt-layout", blob_url_with_sas
         )
         
+        logger.debug("Form Recognizer operation started, waiting for results...")
         result = poller.result()
+        logger.debug(f"Form Recognizer analysis complete. Pages detected: {len(result.pages)}")
         
         paragraphs = []
-        for page in result.pages:
+        for page_num, page in enumerate(result.pages, 1):
+            logger.debug(f"Processing page {page_num}/{len(result.pages)}")
             for paragraph in page.paragraphs if hasattr(page, 'paragraphs') else []:
                 paragraphs.append(paragraph.content)
         
         if not paragraphs:
-            for page in result.pages:
+            logger.debug("No paragraphs found, extracting lines instead")
+            for page_num, page in enumerate(result.pages, 1):
                 current_paragraph = []
                 for line in page.lines:
                     current_paragraph.append(line.content)
@@ -113,6 +136,7 @@ def extract_text_from_document(blob_url_with_sas):
         
         key_value_pairs = {}
         if hasattr(result, 'key_value_pairs'):
+            logger.debug(f"Extracting key-value pairs, count: {len(result.key_value_pairs) if hasattr(result, 'key_value_pairs') else 0}")
             for kv_pair in result.key_value_pairs:
                 if kv_pair.key and kv_pair.value:
                     key = kv_pair.key.content if kv_pair.key else ""
@@ -122,7 +146,7 @@ def extract_text_from_document(blob_url_with_sas):
         
         full_text = "\n\n".join(paragraphs)
         
-        print(f"Text extracted from document: {len(full_text)} characters in {len(paragraphs)} paragraphs")
+        logger.info(f"Text extracted from document: {len(full_text)} characters in {len(paragraphs)} paragraphs")
         
         return {
             "success": True,
@@ -133,17 +157,20 @@ def extract_text_from_document(blob_url_with_sas):
         }
         
     except Exception as e:
-        print(f"Error extracting document text: {str(e)}")
+        logger.error(f"Error extracting document text: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
 
 def ensure_search_index_exists():
     try:
+        logger.debug(f"Checking if search index '{search_index_name}' exists")
         indexes = list(search_index_client.list_indexes())
         index_exists = any(index.name == search_index_name for index in indexes)
         
         if index_exists:
-            print(f"Search index '{search_index_name}' already exists")
+            logger.info(f"Search index '{search_index_name}' already exists")
             return {"success": True, "created": False}
+        
+        logger.info(f"Creating new search index '{search_index_name}'")
         
         fields = [
             SimpleField(name="id", type=SearchFieldDataType.String, key=True),
@@ -162,42 +189,60 @@ def ensure_search_index_exists():
             fields=fields
         )
         
+        logger.debug("Sending index creation request to Azure Cognitive Search")
         result = search_index_client.create_or_update_index(index)
-        print(f"Search index '{search_index_name}' created with standard configuration")
+        logger.info(f"Search index '{search_index_name}' created with standard configuration")
         
         return {"success": True, "created": True}
         
     except Exception as e:
-        print(f"Error creating search index: {str(e)}")
+        logger.error(f"Error creating search index: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
 
 def index_document_content(doc_id, blob_info, text_content):
     try:
-        ensure_search_index_exists()
+        logger.debug(f"Starting indexing for document: {doc_id}")
+        
+        # Ensure search index exists before indexing
+        index_result = ensure_search_index_exists()
+        if not index_result.get("success"):
+            logger.error(f"Failed to ensure search index exists: {index_result.get('error')}")
+            return index_result
+            
+        # Extract filename and file type
+        file_name = os.path.basename(blob_info.get("blob_name", ""))
+        file_type = os.path.splitext(file_name)[1][1:].lower() if "." in file_name else ""
+        
+        paragraphs = text_content.get("paragraphs", [])
         
         search_document = {
             "id": doc_id,
             "blob_name": blob_info.get("blob_name", ""),
             "blob_url": blob_info.get("blob_url", ""),
-            "file_name": os.path.basename(blob_info.get("blob_name", "")),
-            "file_type": os.path.splitext(blob_info.get("blob_name", ""))[1][1:],
+            "file_name": file_name,
+            "file_type": file_type,
             "created_at": datetime.now(pytz.UTC).isoformat(),
             "page_count": text_content.get("page_count", 0),
             "content": text_content.get("text", ""),
-            "paragraph_content": "\n\n".join(text_content.get("paragraphs", []))
+            "paragraph_content": "\n\n".join(paragraphs)
         }
         
+        logger.debug(f"Uploading document to search index, document size: {len(str(search_document))} characters")
         result = search_client.upload_documents(documents=[search_document])
         
-        print(f"Document indexed: {doc_id}")
+        if result and result[0].succeeded:
+            logger.info(f"Document indexed successfully: {doc_id}")
+        else:
+            logger.warning(f"Document indexing may have failed: {result}")
+        
         return {
             "success": True,
-            "indexed": result[0].succeeded,
+            "indexed": result[0].succeeded if result else False,
             "document_id": doc_id
         }
         
     except Exception as e:
-        print(f"Error indexing document content: {str(e)}")
+        logger.error(f"Error indexing document content: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
 
 def process_document(file_path, blob_name=None):
@@ -283,7 +328,7 @@ def search_documents(query_text, top=5):
         }
         
     except Exception as e:
-        print(f"Search error: {str(e)}")
+        logger.error(f"Search error: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e), "results": []}
 
 def main():
