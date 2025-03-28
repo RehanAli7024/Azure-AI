@@ -1,41 +1,93 @@
 .header {
-  background-color: #2c3e50;
-  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 1rem 2rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  position: relative;
+  background: linear-gradient(90deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+  color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo {
+  height: 40px;
+  margin-right: 1rem;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.header-tagline {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  font-weight: 400;
 }
 
 .language-selector {
-  position: absolute;
-  top: 1rem;
-  right: 2rem;
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.1);
   padding: 0.5rem 1rem;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .language-selector label {
-  margin-right: 0.5rem;
-  font-weight: 600;
-  color: #2c3e50;
+  margin-right: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
 }
 
 .language-selector select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid #cbd5e0;
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
-  background-color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
   font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.8rem;
+  padding-right: 2rem;
+}
+
+.language-selector select:focus {
+  border-color: var(--secondary-light);
+  box-shadow: 0 0 0 2px rgba(0, 168, 126, 0.3);
+}
+
+.language-selector select option {
+  background-color: var(--primary-dark);
+  color: white;
 }
 
 @media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    padding: 1rem;
+  }
+  
+  .header-title {
+    font-size: 1.3rem;
+  }
+  
   .language-selector {
-    position: static;
-    margin: 0.5rem 1rem;
-    justify-content: flex-end;
+    width: 100%;
+    justify-content: center;
   }
 }

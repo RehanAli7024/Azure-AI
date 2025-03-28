@@ -133,16 +133,101 @@ const Sidebar = ({ onDocumentUploaded, documents, selectedLanguage, currentBotId
     }
   };
 
+  // Get upload section title based on language
+  const getUploadSectionTitle = () => {
+    switch (selectedLanguage) {
+      case 'es': return 'Subir Documentos';
+      case 'fr': return 'Télécharger des Documents';
+      case 'de': return 'Dokumente Hochladen';
+      case 'it': return 'Carica Documenti';
+      case 'ja': return '文書をアップロード';
+      case 'zh-Hans': return '上传文档';
+      case 'ru': return 'Загрузить Документы';
+      default: return 'Upload Documents';
+    }
+  };
+
+  // Get documents section title based on language
+  const getDocumentsSectionTitle = () => {
+    switch (selectedLanguage) {
+      case 'es': return 'Documentos Subidos';
+      case 'fr': return 'Documents Téléchargés';
+      case 'de': return 'Hochgeladene Dokumente';
+      case 'it': return 'Documenti Caricati';
+      case 'ja': return 'アップロードされた文書';
+      case 'zh-Hans': return '上传的文档';
+      case 'ru': return 'Загруженные Документы';
+      default: return 'Uploaded Documents';
+    }
+  };
+
+  // Get upload button text based on language and state
+  const getUploadButtonText = () => {
+    if (isUploading) {
+      switch (selectedLanguage) {
+        case 'es': return 'Subiendo...';
+        case 'fr': return 'Téléchargement...';
+        case 'de': return 'Hochladen...';
+        case 'it': return 'Caricamento...';
+        case 'ja': return 'アップロード中...';
+        case 'zh-Hans': return '上传中...';
+        case 'ru': return 'Загрузка...';
+        default: return 'Uploading...';
+      }
+    } else {
+      switch (selectedLanguage) {
+        case 'es': return 'Subir';
+        case 'fr': return 'Télécharger';
+        case 'de': return 'Hochladen';
+        case 'it': return 'Carica';
+        case 'ja': return 'アップロード';
+        case 'zh-Hans': return '上传';
+        case 'ru': return 'Загрузить';
+        default: return 'Upload';
+      }
+    }
+  };
+
+  // Render documents list
+  const renderDocuments = () => {
+    if (uploadedDocuments.length === 0) {
+      return (
+        <div className="empty-documents">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 2V8H20" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 18V12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 15H15" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p>{selectedLanguage === 'en' ? 'No documents uploaded yet' : 
+             selectedLanguage === 'es' ? 'Aún no se han subido documentos' : 
+             selectedLanguage === 'fr' ? 'Aucun document téléchargé pour le moment' : 
+             selectedLanguage === 'de' ? 'Noch keine Dokumente hochgeladen' : 
+             selectedLanguage === 'it' ? 'Nessun documento caricato' : 
+             selectedLanguage === 'ja' ? 'まだ文書がアップロードされていません' : 
+             selectedLanguage === 'zh-Hans' ? '尚未上传文档' : 
+             selectedLanguage === 'ru' ? 'Документы еще не загружены' : 
+             'No documents uploaded yet'}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="document-list">
+        {uploadedDocuments.map(doc => (
+          <div key={doc.id} className="document-item">
+            <div className="document-name">{doc.name}</div>
+            <div className="document-timestamp">{doc.timestamp}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="sidebar">
       <div className="upload-section">
-        <h3>
-          {selectedLanguage === 'en' ? 'Upload Documents' : (
-            selectedLanguage === 'es' ? 'Subir Documentos' : 
-            selectedLanguage === 'fr' ? 'Télécharger des Documents' : 
-            'Upload Documents'
-          )}
-        </h3>
+        <h3>{getUploadSectionTitle()}</h3>
         
         <form onSubmit={handleUpload}>
           <div className="file-input-container">
@@ -160,17 +245,7 @@ const Sidebar = ({ onDocumentUploaded, documents, selectedLanguage, currentBotId
             className="upload-button"
             disabled={!selectedFile || isUploading}
           >
-            {isUploading ? (
-              selectedLanguage === 'en' ? 'Uploading...' : 
-              selectedLanguage === 'es' ? 'Subiendo...' : 
-              selectedLanguage === 'fr' ? 'Téléchargement...' : 
-              'Uploading...'
-            ) : (
-              selectedLanguage === 'en' ? 'Upload' : 
-              selectedLanguage === 'es' ? 'Subir' : 
-              selectedLanguage === 'fr' ? 'Télécharger' : 
-              'Upload'
-            )}
+            {getUploadButtonText()}
           </button>
         </form>
         
@@ -185,39 +260,19 @@ const Sidebar = ({ onDocumentUploaded, documents, selectedLanguage, currentBotId
             {selectedLanguage === 'en' ? 'Uploading to selected bot' : 
              selectedLanguage === 'es' ? 'Subiendo al bot seleccionado' :
              selectedLanguage === 'fr' ? 'Téléchargement vers le bot sélectionné' :
+             selectedLanguage === 'de' ? 'Hochladen an den ausgewählten Bot' :
+             selectedLanguage === 'it' ? 'Caricamento sul bot selezionato' :
+             selectedLanguage === 'ja' ? '選択したボットにアップロード' :
+             selectedLanguage === 'zh-Hans' ? '上传到选定的机器人' :
+             selectedLanguage === 'ru' ? 'Загрузка в выбранного бота' :
              'Uploading to selected bot'}
           </div>
         )}
       </div>
       
       <div className="documents-section">
-        <h3>
-          {selectedLanguage === 'en' ? 'Uploaded Documents' : 
-           selectedLanguage === 'es' ? 'Documentos Subidos' : 
-           selectedLanguage === 'fr' ? 'Documents Téléchargés' : 
-           'Uploaded Documents'}
-        </h3>
-        
-        {uploadedDocuments.length > 0 ? (
-          <ul className="documents-list">
-            {uploadedDocuments.map((doc, index) => (
-              <li key={doc.id || index} className="document-item">
-                <div className="document-icon">📄</div>
-                <div className="document-info">
-                  <div className="document-name">{doc.name}</div>
-                  <div className="document-timestamp">{doc.timestamp}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="no-documents">
-            {selectedLanguage === 'en' ? 'No documents uploaded yet' : 
-             selectedLanguage === 'es' ? 'Aún no se han subido documentos' : 
-             selectedLanguage === 'fr' ? 'Aucun document téléchargé pour le moment' : 
-             'No documents uploaded yet'}
-          </div>
-        )}
+        <h3>{getDocumentsSectionTitle()}</h3>
+        {renderDocuments()}
       </div>
     </div>
   );

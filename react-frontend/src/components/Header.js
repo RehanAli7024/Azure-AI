@@ -29,7 +29,21 @@ const Header = ({ selectedLanguage, onLanguageSelect }) => {
 
   return (
     <header className="header">
-      <h1>Document Chat Assistant</h1>
+      <div className="header-brand">
+        <div className="header-logo">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" fill="white" fillOpacity="0.2"/>
+            <path d="M12 20C12 15.5817 15.5817 12 20 12C24.4183 12 28 15.5817 28 20C28 24.4183 24.4183 28 20 28" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M20 22L25 27" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M20 18L25 13" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="20" cy="20" r="2" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <h1 className="header-title">SupportLingua AI</h1>
+          <p className="header-tagline">Multilingual Customer Support</p>
+        </div>
+      </div>
       
       <div className="language-selector">
         <label htmlFor="language-select">Language:</label>

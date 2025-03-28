@@ -104,6 +104,28 @@ const ChatSection = ({ selectedLanguage, botId }) => {
     }
   };
 
+  // Render sources for bot messages
+  const renderSources = (sources) => {
+    if (!sources || sources.length === 0) return null;
+    
+    return (
+      <div className="sources-container">
+        <div className="sources-title">Sources:</div>
+        {sources.map((source, index) => (
+          <a 
+            key={index}
+            href={source.url || '#'} 
+            className="source-item"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {source.title || `Source ${index + 1}`}
+          </a>
+        ))}
+      </div>
+    );
+  };
+
   // Chat message elements
   const chatMessages = messages.map(message => (
     <div 
@@ -111,7 +133,11 @@ const ChatSection = ({ selectedLanguage, botId }) => {
       className={`message ${message.sender} ${message.isError ? 'error' : ''}`}
     >
       <div className="message-content">
-        <div className="message-text">{message.text}</div>
+        <div 
+          className="message-text"
+          dangerouslySetInnerHTML={{ __html: message.text }}
+        />
+        {message.sources && renderSources(message.sources)}
         <div className="message-timestamp">{message.timestamp}</div>
       </div>
     </div>
@@ -120,10 +146,12 @@ const ChatSection = ({ selectedLanguage, botId }) => {
   // Bot typing indicator
   const typingIndicator = isLoading && (
     <div className="message bot typing">
-      <div className="dots">
-        <span className="dot"></span>
-        <span className="dot"></span>
-        <span className="dot"></span>
+      <div className="message-content">
+        <div className="dots">
+          <span className="dot"></span>
+          <span className="dot"></span>
+          <span className="dot"></span>
+        </div>
       </div>
     </div>
   );
@@ -168,118 +196,56 @@ const ChatSection = ({ selectedLanguage, botId }) => {
     }
   };
 
-  // Specialized bot message
-  const getBotContextMessage = () => {
-    switch (selectedLanguage) {
-      case 'es':
-        return 'Actualmente estás chateando con un bot especializado.';
-      case 'fr':
-        return 'Vous discutez actuellement avec un bot spécialisé.';
-      case 'de':
-        return 'Sie chatten derzeit mit einem spezialisierten Bot.';
-      case 'it':
-        return 'Stai attualmente chattando con un bot specializzato.';
-      case 'ja':
-        return '現在、専門のボットとチャットしています。';
-      case 'zh-Hans':
-        return '您目前正在与专业机器人聊天。';
-      case 'zh-Hant':
-        return '您目前正在與專業機器人聊天。';
-      case 'ru':
-        return 'В настоящее время вы общаетесь со специализированным ботом.';
-      case 'ar':
-        return 'أنت تتحدث حاليًا مع روبوت متخصص.';
-      case 'hi':
-        return 'आप वर्तमान में एक विशेष बॉट के साथ चैट कर रहे हैं।';
-      case 'ko':
-        return '현재 전문 봇과 채팅하고 있습니다.';
-      case 'pt':
-        return 'Você está atualmente conversando com um bot especializado.';
-      case 'nl':
-        return 'U chat momenteel met een gespecialiseerde bot.';
-      case 'tr':
-        return 'Şu anda özel bir botla sohbet ediyorsunuz.';
-      case 'pl':
-        return 'Obecnie rozmawiasz z wyspecjalizowanym botem.';
-      case 'sv':
-        return 'Du chattar för närvarande med en specialiserad bot.';
-      default:
-        return 'You\'re currently chatting with a specialized bot.';
-    }
-  };
-
-  // Empty chat message to show initially
-  const emptyChatMessage = (
-    <div className="welcome-message">
-      <div className="bot-avatar">🤖</div>
-      <div className="welcome-text">
-        <p>{getWelcomeMessage()}</p>
-        {botId && (
-          <p className="bot-context-message">
-            {getBotContextMessage()}
-          </p>
-        )}
+  // Welcome content for empty state
+  const renderEmptyState = () => {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M40 12C24.5 12 12 24.5 12 40C12 55.5 24.5 68 40 68C55.5 68 68 55.5 68 40C68 24.5 55.5 12 40 12ZM40 20C44.4 20 48 23.6 48 28C48 32.4 44.4 36 40 36C35.6 36 32 32.4 32 28C32 23.6 35.6 20 40 20ZM40 60C33.3 60 27.3 56.8 24 51.6C24.1 45.8 35.6 42.5 40 42.5C44.4 42.5 55.9 45.8 56 51.6C52.7 56.8 46.7 60 40 60Z" fill="currentColor"/>
+          </svg>
+        </div>
+        <h2 className="empty-state-title">{getWelcomeMessage()}</h2>
+        <p className="empty-state-message">
+          Welcome to SupportLingua AI, your multilingual support assistant. I can answer your questions in multiple languages, provide information from your uploaded documents, and help you find the information you need quickly.
+        </p>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="chat-section">
-      <div className="chat-container">
-        {emptyChatMessage}
-        {chatMessages}
-        {typingIndicator}
-        <div ref={messagesEndRef} />
+      <div className="messages-container">
+        {messages.length === 0 ? renderEmptyState() : (
+          <>
+            {chatMessages}
+            {typingIndicator}
+            <div ref={messagesEndRef}></div>
+          </>
+        )}
       </div>
       
-      <form className="message-form" onSubmit={handleSendMessage}>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={
-            selectedLanguage === 'en' ? 'Type your message...' : 
-            selectedLanguage === 'es' ? 'Escribe tu mensaje...' :
-            selectedLanguage === 'fr' ? 'Tapez votre message...' :
-            selectedLanguage === 'de' ? 'Geben Sie Ihre Nachricht ein...' :
-            selectedLanguage === 'it' ? 'Scrivi il tuo messaggio...' :
-            selectedLanguage === 'ja' ? 'メッセージを入力...' :
-            selectedLanguage === 'zh-Hans' ? '输入您的消息...' :
-            selectedLanguage === 'zh-Hant' ? '輸入您的消息...' :
-            selectedLanguage === 'ru' ? 'Введите ваше сообщение...' :
-            selectedLanguage === 'ar' ? 'اكتب رسالتك...' :
-            selectedLanguage === 'hi' ? 'अपना संदेश लिखें...' :
-            selectedLanguage === 'ko' ? '메시지를 입력하세요...' :
-            selectedLanguage === 'pt' ? 'Digite sua mensagem...' :
-            selectedLanguage === 'nl' ? 'Typ uw bericht...' :
-            selectedLanguage === 'tr' ? 'Mesajınızı yazın...' :
-            selectedLanguage === 'pl' ? 'Wpisz swoją wiadomość...' :
-            selectedLanguage === 'sv' ? 'Skriv ditt meddelande...' :
-            'Type your message...'
-          }
-          disabled={isLoading}
-        />
-        <button type="submit" disabled={!newMessage.trim() || isLoading}>
-          {selectedLanguage === 'en' ? 'Send' : 
-           selectedLanguage === 'es' ? 'Enviar' :
-           selectedLanguage === 'fr' ? 'Envoyer' :
-           selectedLanguage === 'de' ? 'Senden' :
-           selectedLanguage === 'it' ? 'Invia' :
-           selectedLanguage === 'ja' ? '送信' :
-           selectedLanguage === 'zh-Hans' ? '发送' :
-           selectedLanguage === 'zh-Hant' ? '發送' :
-           selectedLanguage === 'ru' ? 'Отправить' :
-           selectedLanguage === 'ar' ? 'إرسال' :
-           selectedLanguage === 'hi' ? 'भेजें' :
-           selectedLanguage === 'ko' ? '보내기' :
-           selectedLanguage === 'pt' ? 'Enviar' :
-           selectedLanguage === 'nl' ? 'Verstuur' :
-           selectedLanguage === 'tr' ? 'Gönder' :
-           selectedLanguage === 'pl' ? 'Wyślij' :
-           selectedLanguage === 'sv' ? 'Skicka' :
-           'Send'}
-        </button>
-      </form>
+      <div className="message-input-container">
+        <form className="message-form" onSubmit={handleSendMessage}>
+          <input 
+            type="text" 
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder={selectedLanguage === 'en' ? 'Type your message...' : 'Type your message...'}
+            className="message-input"
+            disabled={isLoading}
+          />
+          <button 
+            type="submit" 
+            className="send-button" 
+            disabled={!newMessage.trim() || isLoading}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="white"/>
+            </svg>
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

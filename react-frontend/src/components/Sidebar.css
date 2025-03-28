@@ -1,111 +1,210 @@
 .sidebar {
-  flex: 1;
-  max-width: 350px;
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--primary-dark) 0%, #001e45 100%);
+  color: white;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }
 
 .upload-section, .documents-section {
-  background-color: white;
-  border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-h2 {
-  font-size: 1.2rem;
-  color: #34495e;
+.upload-section h3, .documents-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.upload-section h3::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'%3E%3C/path%3E%3Cpolyline points='17 8 12 3 7 8'%3E%3C/polyline%3E%3Cline x1='12' y1='3' x2='12' y2='15'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.documents-section h3::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14 2 14 8 20 8'%3E%3C/polyline%3E%3Cline x1='16' y1='13' x2='8' y2='13'%3E%3C/line%3E%3Cline x1='16' y1='17' x2='8' y2='17'%3E%3C/line%3E%3Cpolyline points='10 9 9 9 8 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .file-input-container {
-  border: 2px dashed #cbd5e0;
-  padding: 1.5rem;
-  border-radius: 4px;
+  position: relative;
   margin-bottom: 1rem;
-  text-align: center;
 }
 
-.file-input-container:hover {
-  border-color: #3498db;
-}
-
-.file-info {
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  word-break: break-all;
-}
-
-button {
-  background-color: #3498db;
+.file-input-container input[type="file"] {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.05);
   color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.file-input-container input[type="file"]::file-selector-button {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
   border: none;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.8rem;
+  margin-right: 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
 }
 
-button:hover:not(:disabled) {
-  background-color: #2980b9;
+.file-input-container input[type="file"]::file-selector-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-#upload-btn {
+.upload-button {
   width: 100%;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: none;
+  background-color: var(--secondary-color);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-#upload-status {
+.upload-button:hover:not(:disabled) {
+  background-color: var(--secondary-light);
+}
+
+.upload-button:disabled {
+  background-color: rgba(255, 255, 255, 0.1);
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.upload-status {
   margin-top: 1rem;
   padding: 0.75rem;
   border-radius: 4px;
-  font-size: 0.9rem;
+  text-align: center;
+  font-size: 0.85rem;
+  animation: fadeIn 0.3s ease;
 }
 
-.success {
-  background-color: #dcfce7;
-  color: #16a34a;
+.upload-status.success {
+  background-color: rgba(0, 200, 81, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
 }
 
-.error {
-  background-color: #fee2e2;
-  color: #dc2626;
+.upload-status.error {
+  background-color: rgba(255, 68, 68, 0.1);
+  border: 1px solid var(--error);
+  color: var(--error);
 }
 
-.info {
-  background-color: #e0f2fe;
-  color: #0284c7;
+.upload-status.info {
+  background-color: rgba(51, 181, 229, 0.1);
+  border: 1px solid var(--info);
+  color: var(--info);
 }
 
-.documents-section ul {
-  list-style: none;
+.document-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
-.documents-section li {
+.document-item {
   padding: 0.75rem;
-  background-color: #f8f9fa;
   border-radius: 4px;
-  margin-bottom: 0.5rem;
-  border-left: 3px solid #3498db;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.document-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
 }
 
 .document-name {
   font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+  word-break: break-word;
 }
 
-.document-date {
-  font-size: 0.8rem;
-  color: #7f8c8d;
-  margin-top: 0.25rem;
+.document-timestamp {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.bot-info-notice {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  background-color: rgba(255, 187, 51, 0.1);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+
+.empty-documents {
+  text-align: center;
+  padding: 1.5rem 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.empty-documents svg {
+  opacity: 0.5;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 768px) {
   .sidebar {
-    max-width: 100%;
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    max-height: 300px;
   }
 }
