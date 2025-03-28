@@ -7,8 +7,8 @@
 
 <p align="center">
   <a href="#-key-features">Features</a> •
-  <a href="#-tech-stack">Tech Stack</a> •
-  <a href="#-architecture">Architecture</a> •
+  <a href="#🛠️-tech-stack">Tech Stack</a> •
+  <a href="#🏗️-architecture">Architecture</a> •
   <a href="#-getting-started">Getting Started</a> •
   <a href="#-demo">Demo</a> •
   <a href="#-roadmap">Roadmap</a>
