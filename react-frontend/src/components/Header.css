@@ -1,0 +1,41 @@
+.header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.language-selector {
+  position: absolute;
+  top: 1rem;
+  right: 2rem;
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.language-selector label {
+  margin-right: 0.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.language-selector select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .language-selector {
+    position: static;
+    margin: 0.5rem 1rem;
+    justify-content: flex-end;
+  }
+}
