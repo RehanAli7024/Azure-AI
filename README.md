@@ -1,7 +1,6 @@
 # 🌐 SupportLingua AI
 
 <p align="center">
-  <img src="https://i.imgur.com/Jn7VDut.png" alt="SupportLingua AI Logo" width="220">
   <br>
   <em>Breaking language barriers in customer support, one conversation at a time</em>
 </p>
@@ -60,10 +59,6 @@ SupportLingua AI follows a modular architecture with four core components:
 4. **API Layer**
    - Connects all components through a secure REST API
    - Manages conversation state and authentication
-
-<p align="center">
-  <img src="https://i.imgur.com/JKMy3BO.png" alt="SupportLingua AI Architecture" width="700">
-</p>
 
 ## 🚀 Getting Started
 
