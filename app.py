@@ -7,6 +7,7 @@ from document_processor import process_document
 from chatbot_core import generate_rag_response
 from translation_core import SimpleTranslator  # Import the SimpleTranslator
 from flask_cors import CORS  # Import CORS
+from uuid import uuid4  # Import UUID for generating unique document IDs
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -42,6 +43,10 @@ def upload_file():
     # Process the document using your existing pipeline
     result = process_document(file_path)
     
+    # Generate a unique ID for the document
+    document_id = str(uuid4())
+    result['document_id'] = document_id
+    
     # Clean up the uploaded file
     os.unlink(file_path)
     
@@ -52,18 +57,23 @@ def chat():
     """Handle chat requests."""
     data = request.json
     query = data.get('query')
+    document_ids = data.get('document_ids', [])
+    
+    # Add detailed logging
+    print(f"Received chat request with document IDs: {document_ids}")
     
     if not query:
         return jsonify({'success': False, 'error': 'No query provided'}), 400
     
     # Get the answer using RAG
-    result = generate_rag_response(query)
+    result = generate_rag_response(query, document_ids=document_ids)
     
     return jsonify({
         'success': True,
         'answer': result.get('answer'),
         'sources': result.get('sources', [])
     })
+
 
 @app.route('/translate', methods=['POST'])
 def translate():

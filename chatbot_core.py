@@ -51,17 +51,25 @@ Do not make up facts or information not present in the context.
     """)
 ]
 
-def generate_rag_response(query, max_search_results=3):
+def generate_rag_response(query, document_ids=None, max_search_results=3):
     """
     Generate a response using RAG with the Azure AI Inference SDK while retaining conversation history.
+    
+    Args:
+        query (str): User query
+        document_ids (list): List of document IDs to search within
+        max_search_results (int): Maximum number of search results to return
     """
     sources = []
     try:
         # Log the received query
         logger.info(f"Received query: '{query}'")
         
-        # Document processing
-        search_results = search_documents(query, top=max_search_results)
+        if document_ids:
+            logger.info(f"Searching within {len(document_ids)} documents from current session")
+        
+        # Document processing - pass document IDs to filter search
+        search_results = search_documents(query, top=max_search_results, document_ids=document_ids)
         
         if not search_results.get("success") or not search_results.get("results"):
             logger.warning("No relevant search results found")

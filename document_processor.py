@@ -1,4 +1,5 @@
 # document_processor.py
+
 import os
 import uuid
 import json
@@ -11,7 +12,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes.models import (
-    SearchIndex, SimpleField, SearchableField, 
+    SearchIndex, SimpleField, SearchableField,
     SearchFieldDataType
 )
 
@@ -64,7 +65,8 @@ def upload_document(file_path, blob_name=None):
         
         with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
-            print(f"Document '{blob_name}' uploaded successfully.")
+        
+        print(f"Document '{blob_name}' uploaded successfully.")
         
         sas_token = generate_blob_sas(
             account_name=blob_service_client.account_name,
@@ -83,6 +85,7 @@ def upload_document(file_path, blob_name=None):
             "blob_url": blob_client.url,
             "blob_url_with_sas": blob_url_with_sas
         }
+    
     except Exception as e:
         print(f"An error occurred while uploading the document: {e}")
         return {"success": False, "error": str(e)}
@@ -105,11 +108,12 @@ def extract_text_from_document(blob_url_with_sas):
                 current_paragraph = []
                 for line in page.lines:
                     current_paragraph.append(line.content)
-                    if len(current_paragraph) > 0 and (len(current_paragraph) % 5 == 0):
-                        paragraphs.append(" ".join(current_paragraph))
-                        current_paragraph = []
-                if current_paragraph:
+                if len(current_paragraph) > 0 and (len(current_paragraph) % 5 == 0):
                     paragraphs.append(" ".join(current_paragraph))
+                    current_paragraph = []
+            
+            if current_paragraph:
+                paragraphs.append(" ".join(current_paragraph))
         
         key_value_pairs = {}
         if hasattr(result, 'key_value_pairs'):
@@ -121,7 +125,6 @@ def extract_text_from_document(blob_url_with_sas):
                         key_value_pairs[key] = value
         
         full_text = "\n\n".join(paragraphs)
-        
         print(f"Text extracted from document: {len(full_text)} characters in {len(paragraphs)} paragraphs")
         
         return {
@@ -131,9 +134,19 @@ def extract_text_from_document(blob_url_with_sas):
             "key_value_pairs": key_value_pairs,
             "page_count": len(result.pages)
         }
-        
+    
     except Exception as e:
         print(f"Error extracting document text: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+def delete_search_index():
+    """Delete the existing search index if it exists."""
+    try:
+        search_index_client.delete_index(search_index_name)
+        print(f"Search index '{search_index_name}' deleted successfully")
+        return {"success": True}
+    except Exception as e:
+        print(f"Error deleting search index: {str(e)}")
         return {"success": False, "error": str(e)}
 
 def ensure_search_index_exists():
@@ -146,7 +159,8 @@ def ensure_search_index_exists():
             return {"success": True, "created": False}
         
         fields = [
-            SimpleField(name="id", type=SearchFieldDataType.String, key=True),
+            # Make id field filterable (this was missing before)
+            SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
             SimpleField(name="blob_name", type=SearchFieldDataType.String, filterable=True),
             SimpleField(name="blob_url", type=SearchFieldDataType.String),
             SimpleField(name="file_name", type=SearchFieldDataType.String, filterable=True, sortable=True),
@@ -158,7 +172,7 @@ def ensure_search_index_exists():
         ]
         
         index = SearchIndex(
-            name=search_index_name, 
+            name=search_index_name,
             fields=fields
         )
         
@@ -166,7 +180,7 @@ def ensure_search_index_exists():
         print(f"Search index '{search_index_name}' created with standard configuration")
         
         return {"success": True, "created": True}
-        
+    
     except Exception as e:
         print(f"Error creating search index: {str(e)}")
         return {"success": False, "error": str(e)}
@@ -188,30 +202,32 @@ def index_document_content(doc_id, blob_info, text_content):
         }
         
         result = search_client.upload_documents(documents=[search_document])
-        
         print(f"Document indexed: {doc_id}")
+        
         return {
             "success": True,
             "indexed": result[0].succeeded,
             "document_id": doc_id
         }
-        
+    
     except Exception as e:
         print(f"Error indexing document content: {str(e)}")
         return {"success": False, "error": str(e)}
 
 def process_document(file_path, blob_name=None):
     upload_result = upload_document(file_path, blob_name)
+    
     if not upload_result.get("success"):
         return {"success": False, "error": f"Document upload failed: {upload_result.get('error')}", "stage": "upload"}
     
     extract_result = extract_text_from_document(upload_result.get("blob_url_with_sas"))
+    
     if not extract_result.get("success"):
         return {"success": False, "error": f"Text extraction failed: {extract_result.get('error')}", "stage": "extract"}
     
     doc_id = str(uuid.uuid4())
-    
     index_result = index_document_content(doc_id, upload_result, extract_result)
+    
     if not index_result.get("success"):
         return {"success": False, "error": f"Indexing failed: {index_result.get('error')}", "stage": "index"}
     
@@ -226,15 +242,36 @@ def process_document(file_path, blob_name=None):
         "search_index": search_index_name
     }
 
-def search_documents(query_text, top=5):
+def search_documents(query_text, top=5, document_ids=None):
     try:
+        # Improved logging for debugging
+        if document_ids:
+            print(f"Searching for documents with IDs: {document_ids}")
+        else:
+            print("No document IDs provided for search")
+            
+        # Create a filter expression if document_ids are provided
+        filter_expression = None
+        if document_ids and len(document_ids) > 0:  # Check if document_ids is not empty
+            # Properly format the filter with single quotes around string IDs
+            filter_parts = []
+            for doc_id in document_ids:
+                # Ensure proper string formatting with quotes
+                filter_parts.append(f"id eq '{doc_id}'")
+            
+            if filter_parts:
+                filter_expression = " or ".join(filter_parts)
+                print(f"Using filter: {filter_expression}")
+        
+        # Perform the search
         results = search_client.search(
             search_text=query_text,
             top=top,
             highlight_fields="content,paragraph_content",
             highlight_pre_tag="<em>",
             highlight_post_tag="</em>",
-            include_total_count=True
+            include_total_count=True,
+            filter=filter_expression  # Apply the filter if document_ids are provided
         )
         
         formatted_results = []
@@ -285,6 +322,13 @@ def search_documents(query_text, top=5):
     except Exception as e:
         print(f"Search error: {str(e)}")
         return {"success": False, "error": str(e), "results": []}
+
+def recreate_search_index():
+    """Helper function to delete and recreate the search index."""
+    delete_result = delete_search_index()
+    if delete_result.get("success"):
+        return ensure_search_index_exists()
+    return delete_result
 
 def main():
     print("\n=== Document Processing and Search Demo ===")

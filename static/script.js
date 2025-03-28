@@ -70,6 +70,10 @@ async function translateText(text, targetLang, sourceLang = null) {
             })
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
@@ -122,16 +126,18 @@ uploadForm.addEventListener('submit', async (e) => {
         const result = await response.json();
         
         if (result.success) {
-            // Add document to list
-            const docItem = {
-                id: Date.now(),
+            // Replace the entire array instead of pushing to it
+            // This ensures we only track the most recent document
+            uploadedDocuments = [{
+                id: result.document_id, // Ensure this matches server response
                 name: file.name,
                 uploadedAt: new Date().toLocaleString(),
                 blobName: result.blob_name,
                 pageCount: result.page_count || 0
-            };
+            }];
             
-            uploadedDocuments.push(docItem);
+            // Add logging for debugging
+            console.log("Document uploaded with ID:", result.document_id);
             updateDocumentsList();
             
             // Reset form
@@ -176,7 +182,7 @@ uploadForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Modified chat form submit handler to handle translations
+// Modified chat form submit handler to handle translations and send document IDs
 chatForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -208,13 +214,20 @@ chatForm.addEventListener('submit', async function(e) {
             messageToSend = await translateText(message, 'en', currentLanguage);
         }
         
-        // Send the translated message to the chat endpoint
+        // Log document IDs for debugging
+        const documentIds = uploadedDocuments.map(doc => doc.id);
+        console.log("Sending chat with document IDs:", documentIds);
+        
+        // Send the translated message to the chat endpoint along with document IDs
         const response = await fetch('/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ query: messageToSend })
+            body: JSON.stringify({ 
+                query: messageToSend,
+                document_ids: documentIds
+            })
         });
         
         const result = await response.json();
